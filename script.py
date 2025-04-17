@@ -3,6 +3,8 @@ import time
 import os
 from PIL import Image, ImageChops, ImageStat
 import sys
+import requests
+from pymupdf import message
 
 # Configuration
 SCAN_INTERVAL = 1  # seconds between checks
@@ -10,6 +12,18 @@ ALERT_REGION = (0, 0, 500, 1080)  # Full height (if 1080p), 500px wide from the 
 PREVIOUS_SCREENSHOT = "prev_alert.png"
 CURRENT_SCREENSHOT = "current_alert.png"
 SOUND_FILE = "notification.wav"  # You can replace this with your own sound file
+
+def send_discord_notification(meesage):
+    webhook_url = "https://discord.com/api/webhooks/1362438101271707819/yZNXTT8PSwIXa5yN3aL0LZgqM6KdZjBvNA2FQBlg39z8n_iaqSXPrVEcEqnOVuFeVayf"
+    user_id = "@Learf"
+    data = {
+        "content" : f"{user_id}"
+    }
+    response = requests.post(webhook_url, data=data)
+    if response.status_code == 204:
+        print("Discord message sent")
+    else:
+        print("Discord message failed")
 
 
 def play_notification_sound():
@@ -88,6 +102,7 @@ def monitor_facebook_alerts():
                 timestamp = time.strftime('%H:%M:%S')
                 print(f"[{timestamp}] Alert detected!")
                 show_notification("New Facebook alert detected!")
+                send_discord_notification("New Facebook alert detected!")
                 play_notification_sound()
 
                 # Update previous image
