@@ -2,59 +2,72 @@ import pyautogui
 import time
 import os
 from PIL import Image, ImageChops, ImageStat
-import sys
 import requests
-from pymupdf import message
+from dotenv import load_dotenv
 
-# Configuration
-SCAN_INTERVAL = 1  # seconds between checks
-ALERT_REGION = (0, 0, 500, 1080)  # Full height (if 1080p), 500px wide from the left
+
+
+SCAN_INTERVAL = 1
+ALERT_REGION = (0, 0, 500, 1080)
 PREVIOUS_SCREENSHOT = "prev_alert.png"
 CURRENT_SCREENSHOT = "current_alert.png"
-SOUND_FILE = "notification.wav"  # You can replace this with your own sound file
+SOUND_FILE = "notification.wav"
 
-def send_discord_notification(meesage):
-    webhook_url = "https://discord.com/api/webhooks/1362438101271707819/yZNXTT8PSwIXa5yN3aL0LZgqM6KdZjBvNA2FQBlg39z8n_iaqSXPrVEcEqnOVuFeVayf"
-    user_id = "@Learf"
-    data = {
-        "content" : f"{user_id}"
+load_dotenv()
+
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+DISCORD_USER_ID = os.getenv("DISCORD_USER_ID")
+
+#TESTS FOR THE ENV FILE
+#print(f"DISCORD_WEBHOOK_URL: {DISCORD_WEBHOOK_URL}")
+#print(f"TELEGRAM_BOT_TOKEN: {TELEGRAM_BOT_TOKEN}")
+#print(f"TELEGRAM_CHAT_ID: {TELEGRAM_CHAT_ID}")
+#print(f"DISCORD_USER_ID: {DISCORD_USER_ID}")
+
+def send_telegram_notification(message):
+    bot_token = TELEGRAM_BOT_TOKEN
+    chat_id = TELEGRAM_CHAT_ID
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    payload = {
+        "chat_id": chat_id,
+        "text": message
     }
-    response = requests.post(webhook_url, data=data)
-    if response.status_code == 204:
-        print("Discord message sent")
-    else:
-        print("Discord message failed")
 
+    response = requests.post(url, data=payload)
+    if response.status_code == 200:
+        print("✅ Telegram message sent!")
+    else:
+        print("❌ Error sending Telegram message")
+
+def send_discord_notification(message):
+    webhook_url = DISCORD_WEBHOOK_URL
+
+    user_id = DISCORD_USER_ID
+
+    data = {
+        "content": f"<@{user_id}> {message}"
+    }
+
+    response = requests.post(webhook_url, json=data)
+
+    if response.status_code == 204:
+        print("✅ Discord message sent")
+    else:
+        print("❌ Discord message failed")
 
 def play_notification_sound():
-    """Play a notification sound with fallback options"""
-    try:
-        # Try Windows built-in sound first
-        import winsound
-        winsound.MessageBeep(winsound.MB_ICONASTERISK)
-    except (ImportError, AttributeError):
-        try:
-            # Fallback to playsound for cross-platform
-            from playsound import playsound
-            if os.path.exists(SOUND_FILE):
-                playsound(SOUND_FILE)
-            else:
-                print("Sound file not found. Using system beep instead.")
-                winsound.Beep(1000, 500)
-        except ImportError:
-            print("\a")  # ASCII bell character as last resort
-            print("Could not play sound - install playsound for better notifications")
-
-
+     import winsound
+     winsound.MessageBeep(winsound.MB_ICONASTERISK)
 def get_alert_region():
-    """Capture the alert region of the screen"""
     x, y, width, height = ALERT_REGION
     screenshot = pyautogui.screenshot(region=(x, y, width, height))
     return screenshot
 
 
 def images_are_different(img1, img2, threshold=10):
-    """Compare two images and return True if they're visually different"""
     if img1.size != img2.size or img1.mode != img2.mode:
         return True
 
@@ -62,24 +75,9 @@ def images_are_different(img1, img2, threshold=10):
     stat = ImageStat.Stat(diff)
     rms = stat.rms[0]
 
-    # Optional: save diff for debugging
     diff.save("diff.png")
 
     return rms > threshold
-
-
-def show_notification(message):
-    """Show a notification using plyer"""
-    try:
-        from plyer import notification
-        notification.notify(
-            title="Facebook Alert",
-            message=message,
-            app_name="Facebook Alert Monitor"
-        )
-    except ImportError:
-        print(f"Notification: {message} (Install plyer for popups)")
-
 
 def monitor_facebook_alerts():
     print("Starting Facebook alerts monitor with sound notifications...")
@@ -101,8 +99,8 @@ def monitor_facebook_alerts():
             if images_are_different(previous_image, current_image):
                 timestamp = time.strftime('%H:%M:%S')
                 print(f"[{timestamp}] Alert detected!")
-                show_notification("New Facebook alert detected!")
                 send_discord_notification("New Facebook alert detected!")
+                send_telegram_notification("New Facebook Alert detected!")
                 play_notification_sound()
 
                 # Update previous image
